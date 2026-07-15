@@ -15,6 +15,30 @@ const SYSTEM_PROMPT = `${KNOWLEDGE}
 
 export default {
   async fetch(request, env) {
+    const reqUrl = new URL(request.url);
+
+    // مسیر یک‌بارمصرف برای ست کردن webhook از سمت Cloudflare (فیلتر نیست)
+    // استفاده: مرورگر رو باز کن و برو به:
+    // https://<worker-url>/setup?key=<WEBHOOK_SECRET>
+    if (reqUrl.pathname === "/setup") {
+      if (reqUrl.searchParams.get("key") !== env.WEBHOOK_SECRET) {
+        return new Response("Forbidden", { status: 403 });
+      }
+      const telegramUrl = `https://api.telegram.org/bot${env.BOT_TOKEN}/setWebhook`;
+      const res = await fetch(telegramUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: reqUrl.origin,
+          secret_token: env.WEBHOOK_SECRET,
+        }),
+      });
+      const data = await res.json();
+      return new Response(JSON.stringify(data, null, 2), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     if (request.method !== "POST") {
       return new Response("JARVIS bot is alive.", { status: 200 });
     }
