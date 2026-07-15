@@ -2,7 +2,7 @@ import KNOWLEDGE from "./knowledge.md";
 import PERSONA from "./persona.md";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "openai/gpt-oss-20b:free";
+const MODEL = "google/gemma-4-31b-it:free";
 const HISTORY_TTL = 60 * 60 * 24 * 30; // ۳۰ روز، حافظه‌ی مکالمه پایدار می‌مونه
 const MAX_HISTORY_MSGS = 12;
 const RATE_LIMIT_WINDOW = 60; // ثانیه (حداقل مجاز در Cloudflare KV)
@@ -16,10 +16,18 @@ ${KNOWLEDGE}
 
 ---
 
-قوانین فنی:
-- فقط فارسی و به‌صورت طبیعی جواب بده مگر کاربر زبان دیگری استفاده کرد.
-- از فرمت Markdown ساده (bold با *) در تلگرام استفاده کن، نه HTML.
-- پاسخ‌ها کوتاه و مکالمه‌ای باشن، نه مقاله‌ای طولانی.`;
+قوانین فنی و ظاهری (خیلی مهم، دقیق رعایت کن):
+- فقط و فقط فارسیِ روان و تمیز بنویس. هرگز کلمه یا کاراکتر خارجی/بی‌معنی/نامفهوم (مثل کلمات چینی، ویتنامی، یا نمادهای عجیب) وسط متن فارسی قاطی نکن.
+- از Markdown ساده‌ی تلگرام استفاده کن: *بولد* برای تیتر/نکات مهم. هرگز از HTML یا نمادهای ناقص و بی‌ربط (مثل پرانتز و آکولاد اضافه) استفاده نکن.
+- بین بخش‌های مختلف پاسخ یک خط خالی بذار تا فاصله و خوانایی رعایت بشه. متن رو فشرده و به‌هم‌چسبیده ننویس.
+- برای لیست از • استفاده کن، نه از خط تیره‌ی خام.
+- ایموجی کم ولی به‌جا استفاده کن؛ تم بصری تیم محمدی مشکی/سفید/خاکستریه، پس ترجیحاً از ایموجی‌های خنثی و مونوکروم (مثل ⚙️ 🧠 💼 👤 🛠 📌) استفاده کن. فقط برای نکات واقعاً مهم یا هشدار از رنگ‌های زرد/قرمز/سبز (مثل ⚠️ ✅ 🔴) استفاده کن، نه برای هر جمله.
+- پاسخ‌ها کوتاه، مرتب و مکالمه‌ای باشن؛ نه مقاله‌ی طولانی و نه یک بلوک متن فشرده.
+
+## مسیر عضویت در تیم (وقتی کاربر می‌خواد عضو تیم بشه)
+اگه کاربر نشون داد می‌خواد به تیم محمدی بپیونده (مهارتی داره و می‌خواد همکاری کنه)، فرآیند پیچیده توضیح نده. فقط بگو:
+«چشم، من مهارت‌هات رو ثبت کردم و از طرف من تأییدیه داری 👍 برو به آیدی ایمان محمدی پیام بده: @imanmohammadi_E و بگو جارویس تأییدت کرده، بعد مهارت‌ها و رزومه‌ت رو کامل براش توضیح بده. به احتمال زیاد قبول می‌شی.»
+از او بخواه مهارت‌هاش رو خلاصه برات بگه (اگه نگفته) تا در پاسخت نامش رو ببری، ولی مسیر نهایی همیشه ارجاع مستقیم به @imanmohammadi_E باشه، نه یه چک‌لیست طولانی.`;
 
 const WELCOME_TEXT =
   "سلام! خوش اومدید 👋\nمن *JARVIS* هستم، منشی تیم محمدی و دستیار شخصی ایمان محمدی.\n\nسوالی درباره‌ی تیم، اعضا، یا خود ایمان دارید؟ در خدمتم. می‌تونید از دکمه‌های زیر هم استفاده کنید یا مستقیم بپرسید.";
@@ -56,13 +64,13 @@ const STATIC_TEXTS = {
   about_team:
     "*تیم محمدی (Team MOHAMMADI)*\n\nیه جمع فنی-محصولیه که ایمان محمدی بنیانش گذاشته. هدف: کنار هم آوردن هر کسی که یه مهارتی داره (بک‌اند، فرانت‌اند، دیزاین، رباتیک، امنیت، تست و...) برای ساخت محصولاتی که مشکل واقعی حل می‌کنن.\n\nمدل کار پروژه‌محوره: برای هر پروژه، اعضای مرتبط انتخاب می‌شن و درآمد با عدالت بین همون اعضا تقسیم می‌شه. هیچ‌کس بیکار نمی‌مونه، و حتی اگه یه‌روز رفتی، رزومه‌ای که ساختی باهات می‌مونه 😉\n\nکانال رسمی: t.me/MOHAMMADI_main\nاینستاگرام: instagram.com/mohammadi.main",
   collab:
-    "عالیه که به همکاری فکر می‌کنید 🤝\nبگید دقیقاً دنبال چی هستید — پیشنهاد پروژه دارید، می‌خواید به تیم بپیوندید، یا فقط کنجکاوید؟ من راهنماییتون می‌کنم.",
+    "علاقه‌مند به همکاری یا عضویت؟ 🤝\n\nمستقیم به آیدی ایمان محمدی پیام بدید:\n@imanmohammadi_E\n\nبنویسید که JARVIS شما رو راهنمایی کرده، بعد مهارت‌ها و رزومه‌تون رو کامل توضیح بدید. احتمال قبولی بالاست، فقط واضح و کامل بنویسید چی بلدید.",
   member_iman_skills:
-    "*مهارت‌های ایمان محمدی*\n\n🧠 هوش مصنوعی: LLM Applications، AI Agents، LangChain، LangGraph، RAG، Prompt Engineering\n⚙️ بک‌اند: Python، Django، DRF، REST APIs، Web Scraping\n🎨 فرانت‌اند: HTML، CSS، JavaScript (پایه)\n🗄 دیتابیس: MongoDB، SQLite\n🛠 زیرساخت: Git، Docker، Linux، DNS، SSL/TLS، Deployment",
+    "*مهارت‌های ایمان محمدی*\n\n🧠 هوش مصنوعی\nLLM Applications، AI Agents، LangChain، LangGraph، RAG، Prompt Engineering\n\n⚙️ بک‌اند\nPython، Django، DRF، REST APIs، Web Scraping\n\n🎨 فرانت‌اند\nHTML، CSS، JavaScript (پایه)\n\n🗄 دیتابیس\nMongoDB، SQLite\n\n🛠 زیرساخت\nGit، Docker، Linux، DNS، SSL/TLS، Deployment",
   member_iman_portfolio:
-    "*نمونه‌کارهای ایمان محمدی*\n\n🎬 *TiraWork* — وب‌سایت استودیو انیمیشن (Django, HTML, CSS)\nlink: https://tirawork.ir\n\n🤖 *دستیار هوش مصنوعی شخصی* (در حال توسعه) — حافظه‌ی بلندمدت، AI Agents، اتصال تلگرام/اینستاگرام\n\n📰 *پلتفرم بازارچه‌ی رسانه* (در حال توسعه) — عضو تیم ۳نفره، معماری کامل محصول",
+    "*نمونه‌کارهای ایمان محمدی*\n\n🎬 *TiraWork*\nوب‌سایت استودیو انیمیشن (Django, HTML, CSS)\nhttps://tirawork.ir\n\n🤖 *دستیار هوش مصنوعی شخصی* _(در حال توسعه)_\nحافظه‌ی بلندمدت، AI Agents، اتصال تلگرام/اینستاگرام\n\n📰 *پلتفرم بازارچه‌ی رسانه* _(در حال توسعه)_\nعضو تیم سه‌نفره، معماری کامل محصول",
   member_iman_about:
-    "*درباره‌ی ایمان محمدی*\n\nAI Product Builder • Software Developer • Automation Engineer\n\n۱۸ ساله و بنیان‌گذار تیم محمدی. خودش رو یه چیز خاص (فقط فرانت یا فقط بک‌اند) تعریف نمی‌کنه؛ روش کارش اینه: مسئله رو پیدا کن، تکنولوژی لازم رو یاد بگیر، با AI ترکیب کن، محصول واقعی بساز.\n\nتلگرام: @imanmohammadi_E\nگیت‌هاب: github.com/iman-dev-MOHAMMADI",
+    "*درباره‌ی ایمان محمدی*\n\nAI Product Builder • Software Developer • Automation Engineer\n\n۱۸ ساله و بنیان‌گذار تیم محمدی. خودش رو یه چیز خاص (فقط فرانت یا فقط بک‌اند) تعریف نمی‌کنه؛ روش کارش اینه:\nمسئله رو پیدا کن → تکنولوژی لازم رو یاد بگیر → با AI ترکیب کن → محصول واقعی بساز.\n\n📎 تلگرام: @imanmohammadi_E\n📎 گیت‌هاب: github.com/iman-dev-MOHAMMADI",
 };
 
 export default {
@@ -152,6 +160,7 @@ export default {
       }
 
       const history = await getHistory(env, userId);
+      await sendTypingAction(env, chatId);
       const reply = await askOpenRouter(env, history, text);
       await saveHistory(env, userId, history, text, reply);
       await sendTelegramMessage(env, chatId, reply);
@@ -169,6 +178,7 @@ export default {
 
 async function handleCallback(env, cq) {
   const chatId = cq.message.chat.id;
+  const messageId = cq.message.message_id;
   const data = cq.data;
 
   // ack سریع تا لودینگ دکمه تو تلگرام قطع بشه
@@ -179,20 +189,20 @@ async function handleCallback(env, cq) {
   });
 
   if (data === "home") {
-    await sendTelegramMessage(env, chatId, WELCOME_TEXT, MAIN_MENU);
+    await editTelegramMessage(env, chatId, messageId, WELCOME_TEXT, MAIN_MENU);
     return;
   }
   if (data === "team_members") {
-    await sendTelegramMessage(env, chatId, "کدوم عضو رو می‌خواید ببینید؟", TEAM_MEMBERS_MENU);
+    await editTelegramMessage(env, chatId, messageId, "کدوم عضو رو می‌خواید ببینید؟", TEAM_MEMBERS_MENU);
     return;
   }
   if (data === "member_iman") {
-    await sendTelegramMessage(env, chatId, "چی می‌خواید درباره‌ی ایمان بدونید؟", MEMBER_SUBMENU);
+    await editTelegramMessage(env, chatId, messageId, "چی می‌خواید درباره‌ی ایمان بدونید؟", MEMBER_SUBMENU);
     return;
   }
   if (STATIC_TEXTS[data]) {
     const keyboard = data.startsWith("member_iman_") ? BACK_TO_MEMBER : MAIN_MENU;
-    await sendTelegramMessage(env, chatId, STATIC_TEXTS[data], keyboard);
+    await editTelegramMessage(env, chatId, messageId, STATIC_TEXTS[data], keyboard);
     return;
   }
 }
@@ -214,7 +224,7 @@ async function askOpenRouter(env, history, userText) {
       model: MODEL,
       messages,
       max_tokens: 1500,
-      temperature: 0.7,
+      temperature: 0.5,
       reasoning: { exclude: true },
     }),
   });
@@ -241,6 +251,37 @@ async function sendTelegramMessage(env, chatId, text, replyMarkup) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+  });
+}
+
+async function editTelegramMessage(env, chatId, messageId, text, replyMarkup) {
+  const url = `https://api.telegram.org/bot${env.BOT_TOKEN}/editMessageText`;
+  const body = {
+    chat_id: chatId,
+    message_id: messageId,
+    text,
+    parse_mode: "Markdown",
+  };
+  if (replyMarkup) body.reply_markup = replyMarkup;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  // اگه ویرایش ممکن نبود (مثلاً پیام خیلی قدیمیه)، پیام جدید بفرست
+  if (!res.ok) {
+    await sendTelegramMessage(env, chatId, text, replyMarkup);
+  }
+}
+
+async function sendTypingAction(env, chatId) {
+  const url = `https://api.telegram.org/bot${env.BOT_TOKEN}/sendChatAction`;
+  await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, action: "typing" }),
   });
 }
 
