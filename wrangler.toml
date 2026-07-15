@@ -1,15 +1,21 @@
-name = "jarvis-public34"
+name = "jarvis-mohammadi-v2"
 main = "index.js"
 compatibility_date = "2024-11-01"
 
-# فایل md به‌صورت متن خام import می‌شود
-rules = [
-  { type = "Text", globs = ["**/*.md"], fallthrough = true }
-]
+# برای اینکه import از .md کار کنه - خیلی مهم
+[[rules]]
+type = "Text"
+globs = ["**/*.md"]
+fallthrough = true
 
-kv_namespaces = [
-  { binding = "JARVIS_KV", id = "d9bbcbfc90604fbe991d1d4a614eee9b" }
-]
+# KV برای حافظه
+[[kv_namespaces]]
+binding = "JARVIS_KV"
+# id رو بعد از ساخت KV از داشبورد یا CLI پر کن
+id = "REPLACE_WITH_YOUR_KV_ID"
+preview_id = "REPLACE_WITH_YOUR_PREVIEW_KV_ID"
 
-# مقادیر حساس (BOT_TOKEN, OPENROUTER_API_KEY, WEBHOOK_SECRET) اینجا نیستند.
-# با دستور `wrangler secret put NAME` ست می‌شوند (پایین README را ببین).
+[vars]
+MODEL = "google/gemma-3-27b-it:free"
+
+# اگر می‌خوای AI Gateway یا چیز دیگه اضافه کنی اینجا

@@ -1,57 +1,103 @@
-import KNOWLEDGE from "./knowledge.md";
-import PERSONA from "./persona.md";
+/**
+ * JARVIS v2 - منشی هوشمند تیم محمدی
+ * Cloudflare Worker + OpenRouter + Telegram
+ * 
+ * ویژگی‌های جدید v2:
+ * - سیستم فکر 4 مرحله‌ای مخفی (Agent Thinking)
+ * - خط قرمز و ضد سواستفاده (Guardrails)
+ * - دیزاین حرفه‌ای با HTML + نمودار مهارت + باکس
+ * - انیمیشن فکر کردن با EditMessage (Progress Simulation)
+ * - حافظه بلندمدت + Rate Limit + typing action
+ */
 
+import KNOWLEDGE_RAW from "./knowledge.md";
+import PERSONA_RAW from "./persona.md";
+
+// برای سازگاری با باندلرهای مختلف
+const KNOWLEDGE = typeof KNOWLEDGE_RAW === 'string' ? KNOWLEDGE_RAW : (KNOWLEDGE_RAW?.default || "");
+const PERSONA = typeof PERSONA_RAW === 'string' ? PERSONA_RAW : (PERSONA_RAW?.default || "");
+
+// --- تنظیمات ---
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "google/gemma-4-31b-it:free";
-const HISTORY_TTL = 60 * 60 * 24 * 30; // ۳۰ روز، حافظه‌ی مکالمه پایدار می‌مونه
-const MAX_HISTORY_MSGS = 12;
-const RATE_LIMIT_WINDOW = 60; // ثانیه (حداقل مجاز در Cloudflare KV)
+// مدل پیش‌فرض - می‌تونی از env هم بیاد. gemma-3-27b free و قوی‌تر از 4-31b تخیلی قبلی
+const DEFAULT_MODEL = "google/gemma-3-27b-it:free";
+const HISTORY_TTL = 60 * 60 * 24 * 30; // 30 روز
+const MAX_HISTORY_MSGS = 14;
+const RATE_LIMIT_WINDOW = 60; // ثانیه
 const RATE_LIMIT_MAX = 15;
 
+// --- پرامپت سیستم فوق‌هوشمند (با فکر 4 مرحله‌ای) ---
 const SYSTEM_PROMPT = `${PERSONA}
 
 ---
-
+دانش تیم (منبع حقیقت - هرگز خارج از این خیال‌پردازی نکن):
 ${KNOWLEDGE}
-
 ---
 
-قوانین فنی و ظاهری (خیلی مهم، دقیق رعایت کن):
-- فقط و فقط فارسیِ روان و تمیز بنویس. هرگز کلمه یا کاراکتر خارجی/بی‌معنی/نامفهوم (مثل کلمات چینی، ویتنامی، یا نمادهای عجیب) وسط متن فارسی قاطی نکن.
-- از Markdown ساده‌ی تلگرام استفاده کن: *بولد* برای تیتر/نکات مهم. هرگز از HTML یا نمادهای ناقص و بی‌ربط (مثل پرانتز و آکولاد اضافه) استفاده نکن.
-- بین بخش‌های مختلف پاسخ یک خط خالی بذار تا فاصله و خوانایی رعایت بشه. متن رو فشرده و به‌هم‌چسبیده ننویس.
-- برای لیست از • استفاده کن، نه از خط تیره‌ی خام.
-- ایموجی کم ولی به‌جا استفاده کن؛ تم بصری تیم محمدی مشکی/سفید/خاکستریه، پس ترجیحاً از ایموجی‌های خنثی و مونوکروم (مثل ⚙️ 🧠 💼 👤 🛠 📌) استفاده کن. فقط برای نکات واقعاً مهم یا هشدار از رنگ‌های زرد/قرمز/سبز (مثل ⚠️ ✅ 🔴) استفاده کن، نه برای هر جمله.
-- پاسخ‌ها کوتاه، مرتب و مکالمه‌ای باشن؛ نه مقاله‌ی طولانی و نه یک بلوک متن فشرده.
+قوانین فنی نهایی (خیلی مهم):
+- فقط فارسی روان بنویس. هرگز کلمه چینی/ویتنامی/نماد عجیب قاطی نکن.
+- از parse_mode HTML استفاده می‌کنیم. فقط تگ‌های مجاز: <b>, <i>, <u>, <s>, <code>, <pre>, <a href="">, <span class="tg-spoiler">
+- برای تیترها از <b> استفاده کن.
+- برای مهارت‌ها حتما از <pre> با نمودار █ و ░ (10 خانه) استفاده کن.
+- بین بخش‌ها یک خط خالی بگذار.
+- پاسخ max 10-12 خط باشد. اگر طولانی شد خلاصه کن.
+- از ایموجی کم و حرفه‌ای استفاده کن (⚙️ 🧠 💼 👤 🛠 📌 📊 ✅ ⚠️). تم تیم مشکی/سفید.
+- تاریخ امروز: 2026-07-15. اگر کاربر درباره آینده پرسید بر اساس knowledge جواب بده.
 
-## مسیر عضویت در تیم (وقتی کاربر می‌خواد عضو تیم بشه)
-اگه کاربر نشون داد می‌خواد به تیم محمدی بپیونده (مهارتی داره و می‌خواد همکاری کنه)، فرآیند پیچیده توضیح نده. فقط بگو:
-«چشم، من مهارت‌هات رو ثبت کردم و از طرف من تأییدیه داری 👍 برو به آیدی ایمان محمدی پیام بده: @imanmohammadi_E و بگو جارویس تأییدت کرده، بعد مهارت‌ها و رزومه‌ت رو کامل براش توضیح بده. به احتمال زیاد قبول می‌شی.»
-از او بخواه مهارت‌هاش رو خلاصه برات بگه (اگه نگفته) تا در پاسخت نامش رو ببری، ولی مسیر نهایی همیشه ارجاع مستقیم به @imanmohammadi_E باشه، نه یه چک‌لیست طولانی.`;
+یادآوری فرآیند فکر 4 مرحله‌ای (مخفی):
+قبل از هر پاسخ، در ذهن خودت این 4 مرحله را طی کن ولی به کاربر نشان نده:
+1. تحلیل نیت: کاربر چه دسته‌ای است؟ (معرفی/عضویت/کارفرما/سواستفاده)
+2. بررسی دانش و خط قرمز: آیا عضو وجود دارد؟ آیا درخواست forbidden است؟ (کد، سرچ، هک)
+3. طراحی پاسخ و دیزاین: بهترین فرمت چیست؟ نمودار؟ باکس؟ لینک؟
+4. بازبینی: آیا فارسی تمیز است؟ آیا HTML سالم است؟ آیا ضد سواستفاده رعایت شد؟
+هرگز مراحل فکر را ننویس.
 
-const WELCOME_TEXT =
-  "سلام! خوش اومدید 👋\nمن *JARVIS* هستم، منشی تیم محمدی و دستیار شخصی ایمان محمدی.\n\nسوالی درباره‌ی تیم، اعضا، یا خود ایمان دارید؟ در خدمتم. می‌تونید از دکمه‌های زیر هم استفاده کنید یا مستقیم بپرسید.";
+قالب رد درخواست خارج از حوزه:
+⚠️ متوجه درخواستت هستم قربان\n\nمن جارویس هستم، منشی تیم محمدی و دستیار شخصی آقای ایمان محمدی. من از نظر فنی توانایی «{کار درخواستی}» رو دارم، ولی وظیفه‌ام فقط پاسخگویی درباره تیم، اعضا، مهارت‌ها و همکاریه. برای همین نمی‌تونم این رو برای شما انجام بدم.\n\nاگر سوالی درباره تیم یا آقای محمدی دارید، با جون و دل در خدمتم.
+`;
+
+// --- متن‌های استاتیک با دیزاین حرفه‌ای HTML ---
+const WELCOME_TEXT = `
+<b>سلام! خوش اومدید 👋</b>
+
+من <b>JARVIS</b> هستم، منشی تیم محمدی و دستیار شخصی آقای ایمان محمدی.
+
+<pre>
+━━━━━━━━━━━━━━━━━━━━
+📊 Team MOHAMMADI
+━━━━━━━━━━━━━━━━━━━━
+👤 بنیان‌گذار: ایمان محمدی
+⚡ حوزه: AI Product Studio
+🎯 مدل: پروژه‌محور + تقسیم عادلانه
+━━━━━━━━━━━━━━━━━━━━
+</pre>
+
+سوالی درباره‌ی تیم، اعضا، مهارت‌ها یا همکاری دارید؟
+از دکمه‌های زیر استفاده کنید یا مستقیم بپرسید.
+`.trim();
 
 const MAIN_MENU = {
   inline_keyboard: [
     [{ text: "👥 اعضای تیم", callback_data: "team_members" }],
     [{ text: "ℹ️ درباره‌ی تیم", callback_data: "about_team" }],
+    [{ text: "🛠 مهارت‌ها", callback_data: "member_iman_skills" }],
+    [{ text: "💼 نمونه‌کارها", callback_data: "member_iman_portfolio" }],
     [{ text: "🤝 همکاری با ما", callback_data: "collab" }],
   ],
 };
 
 const TEAM_MEMBERS_MENU = {
   inline_keyboard: [
-    [{ text: "ایمان محمدی (بنیان‌گذار)", callback_data: "member_iman" }],
+    [{ text: "👤 ایمان محمدی (بنیان‌گذار)", callback_data: "member_iman" }],
     [{ text: "⬅️ بازگشت", callback_data: "home" }],
   ],
 };
 
 const MEMBER_SUBMENU = {
   inline_keyboard: [
-    [{ text: "🛠 مهارت‌ها", callback_data: "member_iman_skills" }],
+    [{ text: "🛠 مهارت‌ها (نموداری)", callback_data: "member_iman_skills" }],
     [{ text: "💼 نمونه‌کارها", callback_data: "member_iman_portfolio" }],
-    [{ text: "👤 درباره‌ی من", callback_data: "member_iman_about" }],
+    [{ text: "👤 بیوگرافی کامل", callback_data: "member_iman_about" }],
     [{ text: "⬅️ بازگشت", callback_data: "team_members" }],
   ],
 };
@@ -60,18 +106,146 @@ const BACK_TO_MEMBER = {
   inline_keyboard: [[{ text: "⬅️ بازگشت", callback_data: "member_iman" }]],
 };
 
+const BACK_TO_HOME = MAIN_MENU;
+
 const STATIC_TEXTS = {
-  about_team:
-    "*تیم محمدی (Team MOHAMMADI)*\n\nیه جمع فنی-محصولیه که ایمان محمدی بنیانش گذاشته. هدف: کنار هم آوردن هر کسی که یه مهارتی داره (بک‌اند، فرانت‌اند، دیزاین، رباتیک، امنیت، تست و...) برای ساخت محصولاتی که مشکل واقعی حل می‌کنن.\n\nمدل کار پروژه‌محوره: برای هر پروژه، اعضای مرتبط انتخاب می‌شن و درآمد با عدالت بین همون اعضا تقسیم می‌شه. هیچ‌کس بیکار نمی‌مونه، و حتی اگه یه‌روز رفتی، رزومه‌ای که ساختی باهات می‌مونه 😉\n\nکانال رسمی: t.me/MOHAMMADI_main\nاینستاگرام: instagram.com/mohammadi.main",
-  collab:
-    "علاقه‌مند به همکاری یا عضویت؟ 🤝\n\nمستقیم به آیدی ایمان محمدی پیام بدید:\n@imanmohammadi_E\n\nبنویسید که JARVIS شما رو راهنمایی کرده، بعد مهارت‌ها و رزومه‌تون رو کامل توضیح بدید. احتمال قبولی بالاست، فقط واضح و کامل بنویسید چی بلدید.",
-  member_iman_skills:
-    "*مهارت‌های ایمان محمدی*\n\n🧠 هوش مصنوعی\nLLM Applications، AI Agents، LangChain، LangGraph، RAG، Prompt Engineering\n\n⚙️ بک‌اند\nPython، Django، DRF، REST APIs، Web Scraping\n\n🎨 فرانت‌اند\nHTML، CSS، JavaScript (پایه)\n\n🗄 دیتابیس\nMongoDB، SQLite\n\n🛠 زیرساخت\nGit، Docker، Linux، DNS، SSL/TLS، Deployment",
-  member_iman_portfolio:
-    "*نمونه‌کارهای ایمان محمدی*\n\n🎬 *TiraWork*\nوب‌سایت استودیو انیمیشن (Django, HTML, CSS)\nhttps://tirawork.ir\n\n🤖 *دستیار هوش مصنوعی شخصی* _(در حال توسعه)_\nحافظه‌ی بلندمدت، AI Agents، اتصال تلگرام/اینستاگرام\n\n📰 *پلتفرم بازارچه‌ی رسانه* _(در حال توسعه)_\nعضو تیم سه‌نفره، معماری کامل محصول",
-  member_iman_about:
-    "*درباره‌ی ایمان محمدی*\n\nAI Product Builder • Software Developer • Automation Engineer\n\n۱۸ ساله و بنیان‌گذار تیم محمدی. خودش رو یه چیز خاص (فقط فرانت یا فقط بک‌اند) تعریف نمی‌کنه؛ روش کارش اینه:\nمسئله رو پیدا کن → تکنولوژی لازم رو یاد بگیر → با AI ترکیب کن → محصول واقعی بساز.\n\n📎 تلگرام: @imanmohammadi_E\n📎 گیت‌هاب: github.com/iman-dev-MOHAMMADI",
+  about_team: `
+<b>ℹ️ تیم محمدی - Team MOHAMMADI</b>
+
+<pre>
+━━━━━━━━━━━━━━━━━━━━
+📊 معرفی تیم
+━━━━━━━━━━━━━━━━━━━━
+👤 بنیان‌گذار: ایمان محمدی - 18 ساله
+⚡ نوع: Product Studio (جمع فنی-محصولی)
+🎯 شعار: پیدا کن → یاد بگیر → با AI بساز
+━━━━━━━━━━━━━━━━━━━━
+</pre>
+
+تیم محمدی جاییه که هر کسی با هر مهارتی (بک‌اند، فرانت، دیزاین، رباتیک، امنیت، تست، محتوا) دور هم جمع می‌شه تا محصول واقعی بسازه، نه فقط رزومه.
+
+<b>مدل کاری:</b>
+• پروژه‌محور - برای هر پروژه تیم جدا بسته می‌شه
+• تقسیم درآمد عادلانه بین اعضای همون پروژه
+• ریموت و منعطف
+• رزومه‌ای که می‌سازی برای خودت می‌مونه
+
+<b>کانال‌ها:</b>
+<a href="https://t.me/MOHAMMADI_main">📎 t.me/MOHAMMADI_main</a>
+<a href="https://instagram.com/mohammadi.main">📎 instagram.com/mohammadi.main</a>
+`.trim(),
+
+  collab: `
+<b>🤝 همکاری با تیم محمدی</b>
+
+علاقه‌مند به عضویتی؟ یا کارفرمایی هستی که پروژه داری؟
+
+<b>مسیر عضویت:</b>
+1. مهارتت رو به من بگو تا ثبت کنم
+2. من بهت تاییدیه می‌دم
+3. برو به <a href="https://t.me/imanmohammadi_E">@imanmohammadi_E</a> پیام بده
+4. بگو «جارویس تاییدم کرده» + رزومه و مهارت‌هات رو کامل توضیح بده
+
+<b>مسیر کارفرما:</b>
+مستقیم به <a href="https://t.me/imanmohammadi_E">@imanmohammadi_E</a> پیام بده و پروژه‌ت رو توضیح بده. تیم مناسب برات بسته می‌شه.
+
+⚡ احتمال قبولی برای عضویت بالاست، فقط واضح و کامل بنویس چی بلدی.
+`.trim(),
+
+  member_iman_skills: `
+<b>🛠 مهارت‌های ایمان محمدی - بنیان‌گذار</b>
+<i>AI Product Builder | Software Developer</i>
+
+<pre>
+مهارت ها
+
+Python      ██████████ 100%
+Django      █████████░ 95%
+DRF/API     █████████░ 90%
+AI/LLM      █████████░ 90%
+Prompt Eng  █████████░ 92%
+LangChain   ████████░░ 85%
+RAG         ████████░░ 85%
+Git         █████████░ 90%
+MongoDB     ████████░░ 80%
+Docker      ███████░░░ 75%
+HTML/CSS    ███████░░░ 75%
+Linux       ███████░░░ 75%
+</pre>
+
+📌 <b>نکته:</b> روش ایمان: مسئله → یادگیری سریع → ترکیب با AI → محصول
+`.trim(),
+
+  member_iman_portfolio: `
+<b>💼 نمونه‌کارهای ایمان محمدی</b>
+
+<b>1. 🎬 TiraWork</b>
+وب‌سایت استودیو انیمیشن تیراوورک
+• تکنولوژی: <code>Django, HTML, CSS, JS</code>
+• لینک: <a href="https://tirawork.ir">tirawork.ir</a>
+• وضعیت: ✅ آنلاین
+
+<b>2. 🤖 دستیار هوش شخصی - Personal AI</b>
+• تکنولوژی: <code>LLM, LangGraph, RAG, Telegram API</code>
+• وضعیت: <i>در حال توسعه</i> - همین جارویس نسخه اولیه‌ست
+• ویژگی: حافظه بلندمدت، ایجنت‌های هوشمند
+
+<b>3. 📰 بازارچه رسانه - Media Marketplace</b>
+• نقش: معمار محصول - تیم 3 نفره
+• توضیح: اتصال صاحبان رسانه و تبلیغ‌کنندگان
+• وضعیت: <i>در حال توسعه</i>
+
+برای جزئیات بیشتر بگو کدوم پروژه.
+`.trim(),
+
+  member_iman_about: `
+<b>👤 درباره‌ی ایمان محمدی</b>
+
+<b>AI Product Builder • Automation Engineer</b>
+18 ساله، بنیان‌گذار تیم محمدی
+
+<i>❝ خودش رو یه چیز خاص (فقط فرانت یا فقط بک‌اند) تعریف نمی‌کنه ❞</i>
+
+<b>فلسفه کاری:</b>
+مسئله رو پیدا کن → تکنولوژی لازم رو یاد بگیر → با AI ترکیب کن → محصول واقعی بساز
+
+<b>شخصیت:</b>
+• عاشق اتوماسیون و حذف کارهای تکراری
+• وسواسی روی دیزاین تمیز و UX
+• معتقد به: کمتر حرف، بیشتر محصول
+
+<b>ارتباط:</b>
+<a href="https://t.me/imanmohammadi_E">📎 تلگرام: @imanmohammadi_E</a>
+<a href="https://github.com/iman-dev-MOHAMMADI">📎 گیت‌هاب: iman-dev-MOHAMMADI</a>
+
+<pre>
+━━━━━━━━━━━━━━━━━━━━
+🎯 وضعیت: فعال - آماده پروژه
+━━━━━━━━━━━━━━━━━━━━
+</pre>
+`.trim(),
 };
+
+// --- تشخیص درخواست‌های ممنوعه در سطح کد (اضافه بر هوش مدل) ---
+function isForbiddenLocal(text) {
+  const lower = text.toLowerCase();
+  const forbiddenKeywords = [
+    "کد بنویس", "کد بزن", "برنامه بنویس", "اسکریپت بنویس",
+    "سرچ کن", "جستجو کن", "search کن", "google کن",
+    "هک کن", "کرک کن", "پسورد بده", "توکن",
+    "system prompt", "پرامپت سیستم", "پرامپتت چیه",
+    "منو هک", "دانلود کن", "نفوذ",
+    "write code", "generate code", "search the web"
+  ];
+  return forbiddenKeywords.some(k => lower.includes(k));
+}
+
+function getForbiddenLabel(text) {
+  if (text.includes("کد") || text.toLowerCase().includes("code")) return "کدنویسی و برنامه‌نویسی";
+  if (text.includes("سرچ") || text.includes("جستجو") || text.toLowerCase().includes("search")) return "جستجوی اینترنتی";
+  if (text.includes("هک")) return "هک و نفوذ";
+  return "این کار";
+}
 
 export default {
   async fetch(request, env) {
@@ -110,7 +284,7 @@ export default {
     }
 
     if (request.method !== "POST") {
-      return new Response("JARVIS bot is alive.", { status: 200 });
+      return new Response("JARVIS v2 is alive. Team MOHAMMADI 🧠", { status: 200 });
     }
 
     const secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token");
@@ -142,33 +316,71 @@ export default {
 
       const allowed = await checkRateLimit(env, userId);
       if (!allowed) {
-        await sendTelegramMessage(env, chatId, "یه کم آروم‌تر قربان 🙂 چند ثانیه دیگه دوباره پیام بدید.");
+        await sendTelegramMessage(env, chatId, "⚠️ یه کم آروم‌تر قربان 🙂 چند ثانیه دیگه دوباره پیام بدید.");
         return new Response("OK");
       }
 
+      // دستور شروع
       if (text === "/start") {
         await markSeen(env, userId);
         await sendTelegramMessage(env, chatId, WELCOME_TEXT, MAIN_MENU);
         return new Response("OK");
       }
 
+      // اولین بار کاربر
       const isFirstTime = !(await hasSeen(env, userId));
       if (isFirstTime) {
         await markSeen(env, userId);
         await sendTelegramMessage(env, chatId, WELCOME_TEXT, MAIN_MENU);
+        // اگر متن /start نبود، ادامه میدیم به پردازش سوال هم
+        if (text === "/start") return new Response("OK");
+      }
+
+      // --- گارد محلی سریع (بدون مصرف توکن LLM) ---
+      if (isForbiddenLocal(text)) {
+        const label = getForbiddenLabel(text);
+        const forbiddenReply = `⚠️ متوجه درخواستت هستم قربان\n\nمن <b>جارویس</b> هستم، منشی تیم محمدی و دستیار شخصی آقای ایمان محمدی. من از نظر فنی توانایی <b>${label}</b> رو دارم، ولی وظیفه‌ام فقط پاسخگویی درباره تیم، اعضا، مهارت‌ها، نمونه‌کارها و همکاریه و نمی‌تونم این کار رو برای شما انجام بدم.\n\nاگر سوالی درباره تیم یا آقای محمدی دارید، با جون و دل در خدمتم.`;
+        await sendTelegramMessage(env, chatId, forbiddenReply, MAIN_MENU);
         return new Response("OK");
       }
 
-      const history = await getHistory(env, userId);
+      // --- حالت فکر کردن (انیمیشن) ---
       await sendTypingAction(env, chatId);
-      const reply = await askOpenRouter(env, history, text);
+      
+      // پیام placeholder برای شبیه‌سازی فکر 4 مرحله‌ای
+      const thinkingText = `<b>🧠 جارویس داره فکر می‌کنه...</b>\n\n<pre>مرحله ۱/۴: تحلیل نیت سوال... ████░░░░░░ 25%\nمرحله ۲/۴: بررسی دانش تیم...   ██████░░░░ 50%\nمرحله ۳/۴: طراحی پاسخ...      ████████░░ 75%\nمرحله ۴/۴: بازبینی نهایی...   ██████████ 100%</pre>\n\n<i>لطفا یک لحظه صبر کنید قربان...</i>`;
+
+      const placeholderRes = await sendTelegramMessage(env, chatId, thinkingText, null, true);
+      const placeholderId = placeholderRes?.result?.message_id;
+
+      const history = await getHistory(env, userId);
+
+      let reply;
+      try {
+        reply = await askOpenRouter(env, history, text);
+      } catch (e) {
+        console.error("LLM error:", e);
+        reply = "⚠️ یه مشکل فنی پیش اومد قربان، مغزم یه لحظه هنگ کرد. لطفاً دوباره بپرسید.";
+      }
+
       await saveHistory(env, userId, history, text, reply);
-      await sendTelegramMessage(env, chatId, reply);
+
+      // ویرایش پیام thinking به جواب نهایی (تجربه کاربری حرفه‌ای)
+      if (placeholderId) {
+        const edited = await editTelegramMessage(env, chatId, placeholderId, reply, MAIN_MENU);
+        if (!edited) {
+          // اگر ادیت به خاطر HTML نامعتبر فیل شد، بدون HTML دوباره بفرست
+          await editTelegramMessage(env, chatId, placeholderId, stripHtml(reply), MAIN_MENU, false);
+        }
+      } else {
+        await sendTelegramMessage(env, chatId, reply, MAIN_MENU);
+      }
+
     } catch (err) {
       console.error(err);
       const chatId = update?.message?.chat?.id || update?.callback_query?.message?.chat?.id;
       if (chatId) {
-        await sendTelegramMessage(env, chatId, "یه مشکلی پیش اومد قربان، لطفاً دوباره امتحان کنید.");
+        await sendTelegramMessage(env, chatId, "⚠️ یه مشکلی پیش اومد قربان، لطفاً دوباره امتحان کنید.", MAIN_MENU);
       }
     }
 
@@ -181,7 +393,6 @@ async function handleCallback(env, cq) {
   const messageId = cq.message.message_id;
   const data = cq.data;
 
-  // ack سریع تا لودینگ دکمه تو تلگرام قطع بشه
   await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/answerCallbackQuery`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -193,21 +404,22 @@ async function handleCallback(env, cq) {
     return;
   }
   if (data === "team_members") {
-    await editTelegramMessage(env, chatId, messageId, "کدوم عضو رو می‌خواید ببینید؟", TEAM_MEMBERS_MENU);
+    await editTelegramMessage(env, chatId, messageId, "<b>👥 اعضای تیم محمدی</b>\n\nکدوم عضو رو می‌خواید ببینید قربان؟\n\n<i>نکته: فعلا فقط اطلاعات بنیان‌گذار به صورت عمومی در دسترسه.</i>", TEAM_MEMBERS_MENU);
     return;
   }
   if (data === "member_iman") {
-    await editTelegramMessage(env, chatId, messageId, "چی می‌خواید درباره‌ی ایمان بدونید؟", MEMBER_SUBMENU);
+    await editTelegramMessage(env, chatId, messageId, "<b>👤 ایمان محمدی - بنیان‌گذار</b>\n\nچی می‌خواید درباره‌ی ایمان بدونید؟", MEMBER_SUBMENU);
     return;
   }
   if (STATIC_TEXTS[data]) {
-    const keyboard = data.startsWith("member_iman_") ? BACK_TO_MEMBER : MAIN_MENU;
+    const keyboard = data.startsWith("member_iman_") ? BACK_TO_MEMBER : BACK_TO_HOME;
     await editTelegramMessage(env, chatId, messageId, STATIC_TEXTS[data], keyboard);
     return;
   }
 }
 
 async function askOpenRouter(env, history, userText) {
+  const model = env.MODEL || DEFAULT_MODEL;
   const messages = [
     { role: "system", content: SYSTEM_PROMPT },
     ...history,
@@ -221,16 +433,19 @@ async function askOpenRouter(env, history, userText) {
       Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
     },
     body: JSON.stringify({
-      model: MODEL,
+      model,
       messages,
-      max_tokens: 1500,
-      temperature: 0.5,
+      max_tokens: 1800,
+      temperature: 0.45,
+      top_p: 0.9,
       reasoning: { exclude: true },
     }),
   });
 
   if (!res.ok) {
-    throw new Error(`OpenRouter error: ${res.status} ${await res.text()}`);
+    const txt = await res.text();
+    console.error("OpenRouter fail:", txt);
+    throw new Error(`OpenRouter error: ${res.status} ${txt}`);
   }
 
   const data = await res.json();
@@ -238,29 +453,13 @@ async function askOpenRouter(env, history, userText) {
   return reply || "یه لحظه گیج شدم قربان، می‌شه واضح‌تر بپرسید؟";
 }
 
-async function sendTelegramMessage(env, chatId, text, replyMarkup) {
+async function sendTelegramMessage(env, chatId, text, replyMarkup, returnFull = false) {
   const url = `https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`;
   const body = {
     chat_id: chatId,
     text,
-    parse_mode: "Markdown",
-  };
-  if (replyMarkup) body.reply_markup = replyMarkup;
-
-  await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-}
-
-async function editTelegramMessage(env, chatId, messageId, text, replyMarkup) {
-  const url = `https://api.telegram.org/bot${env.BOT_TOKEN}/editMessageText`;
-  const body = {
-    chat_id: chatId,
-    message_id: messageId,
-    text,
-    parse_mode: "Markdown",
+    parse_mode: "HTML",
+    disable_web_page_preview: false,
   };
   if (replyMarkup) body.reply_markup = replyMarkup;
 
@@ -270,10 +469,67 @@ async function editTelegramMessage(env, chatId, messageId, text, replyMarkup) {
     body: JSON.stringify(body),
   });
 
-  // اگه ویرایش ممکن نبود (مثلاً پیام خیلی قدیمیه)، پیام جدید بفرست
+  const json = await res.json().catch(() => null);
+
   if (!res.ok) {
-    await sendTelegramMessage(env, chatId, text, replyMarkup);
+    console.error("sendMessage failed:", json);
+    // تلاش مجدد بدون parse_mode اگر خطای parsing بود
+    if (JSON.stringify(json).includes("parse")) {
+      const retryBody = { chat_id: chatId, text: stripHtml(text), reply_markup: replyMarkup };
+      const retryRes = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(retryBody),
+      });
+      return retryRes.json().catch(() => null);
+    }
   }
+
+  return returnFull ? json : json;
+}
+
+async function editTelegramMessage(env, chatId, messageId, text, replyMarkup, useHtml = true) {
+  const url = `https://api.telegram.org/bot${env.BOT_TOKEN}/editMessageText`;
+  const body = {
+    chat_id: chatId,
+    message_id: messageId,
+    text,
+    parse_mode: useHtml ? "HTML" : undefined,
+    disable_web_page_preview: false,
+  };
+  if (replyMarkup) body.reply_markup = replyMarkup;
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  const json = await res.json().catch(() => null);
+
+  if (!res.ok) {
+    console.error("editMessage failed:", json);
+    // اگر ادیت ممکن نبود، پیام جدید بفرست
+    if (json?.description?.includes("message is not modified")) {
+      return true;
+    }
+    if (useHtml && JSON.stringify(json).includes("parse")) {
+      // تلاش با بدون HTML
+      return editTelegramMessage(env, chatId, messageId, stripHtml(text), replyMarkup, false);
+    }
+    // fallback to new message
+    await sendTelegramMessage(env, chatId, text, replyMarkup);
+    return false;
+  }
+  return true;
+}
+
+function stripHtml(html) {
+  return html
+    .replace(/<[^>]*>/g, "")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
 }
 
 async function sendTypingAction(env, chatId) {
@@ -315,9 +571,7 @@ async function checkRateLimit(env, userId) {
   const key = `rl:${userId}`;
   const raw = await env.JARVIS_KV.get(key);
   const count = raw ? parseInt(raw, 10) : 0;
-
   if (count >= RATE_LIMIT_MAX) return false;
-
   await env.JARVIS_KV.put(key, String(count + 1), {
     expirationTtl: RATE_LIMIT_WINDOW,
   });
