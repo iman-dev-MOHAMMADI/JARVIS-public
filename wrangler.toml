@@ -8,7 +8,7 @@ rules = [
 ]
 
 kv_namespaces = [
-  { binding = "JARVIS_KV", id = "PUT_YOUR_KV_NAMESPACE_ID_HERE" }
+  { binding = "JARVIS_KV", id = "d9bbcbfc90604fbe991d1d4a614eee9b" }
 ]
 
 # مقادیر حساس (BOT_TOKEN, OPENROUTER_API_KEY, WEBHOOK_SECRET) اینجا نیستند.
