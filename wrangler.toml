@@ -2,21 +2,9 @@ name = "jarvis-public34"
 main = "index.standalone.js"
 compatibility_date = "2024-11-01"
 
-# نکته: چون روی Cloudflare Builds دیپلوی می‌کنی، KV رو از داشبورد بایند کن
-# نه از اینجا. پس این بخش رو پاک کردم تا ارور REPLACE_WITH_YOUR_KV_ID نده
-# اگر خواستی لوکال دیپلوی کنی، دستور پایین رو بزن:
-# npx wrangler kv namespace create JARVIS_KV
-# بعد آی‌دی رو اینجا بذار
-
-# [[kv_namespaces]]
-# binding = "JARVIS_KV"
-# id = "YOUR_REAL_KV_ID_HERE"
-
 [vars]
 MODEL = "google/gemma-3-27b-it:free"
 
-# برای index.js که import .md داره اگه خواستی برگردی، این رول لازمه
-# برای index.standalone.js لازم نیست ولی باشه ضرر نداره
 [[rules]]
 type = "Text"
 globs = ["**/*.md"]
