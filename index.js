@@ -1,7 +1,7 @@
 import KNOWLEDGE from "./knowledge.md";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "tencent/hy3:free";
+const MODEL = "openai/gpt-oss-20b:free";
 const HISTORY_TTL = 60 * 60 * 6; // 6 ساعت
 const MAX_HISTORY_MSGS = 10;
 const RATE_LIMIT_WINDOW = 60; // ثانیه (حداقل مجاز در Cloudflare KV)
@@ -126,8 +126,9 @@ async function askOpenRouter(env, history, userText) {
     body: JSON.stringify({
       model: MODEL,
       messages,
-      max_tokens: 2500,
+      max_tokens: 1500,
       temperature: 0.6,
+      reasoning: { exclude: true },
     }),
   });
 
