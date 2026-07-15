@@ -126,7 +126,7 @@ async function askOpenRouter(env, history, userText) {
     body: JSON.stringify({
       model: MODEL,
       messages,
-      max_tokens: 700,
+      max_tokens: 2500,
       temperature: 0.6,
     }),
   });
@@ -136,7 +136,6 @@ async function askOpenRouter(env, history, userText) {
   }
 
   const data = await res.json();
-  console.log("OpenRouter raw response:", JSON.stringify(data));
   const reply = data?.choices?.[0]?.message?.content?.trim();
   return reply || "متوجه نشدم، می‌شه سوالت رو واضح‌تر بپرسی؟";
 }
