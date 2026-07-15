@@ -1,0 +1,15 @@
+{
+  "name": "jarvis-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "بات تلگرام منشی هوشمند - Cloudflare Workers + OpenRouter",
+  "main": "index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "kv:create": "wrangler kv:namespace create JARVIS_KV"
+  },
+  "devDependencies": {
+    "wrangler": "^3.90.0"
+  }
+}

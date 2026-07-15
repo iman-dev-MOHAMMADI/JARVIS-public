@@ -1,0 +1,15 @@
+name = "jarvis-bot"
+main = "index.js"
+compatibility_date = "2024-11-01"
+
+# فایل md به‌صورت متن خام import می‌شود
+rules = [
+  { type = "Text", globs = ["**/*.md"], fallthrough = true }
+]
+
+kv_namespaces = [
+  { binding = "JARVIS_KV", id = "PUT_YOUR_KV_NAMESPACE_ID_HERE" }
+]
+
+# مقادیر حساس (BOT_TOKEN, OPENROUTER_API_KEY, WEBHOOK_SECRET) اینجا نیستند.
+# با دستور `wrangler secret put NAME` ست می‌شوند (پایین README را ببین).
