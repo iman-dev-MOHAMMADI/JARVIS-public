@@ -4,8 +4,8 @@ const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const MODEL = "tencent/hy3:free";
 const HISTORY_TTL = 60 * 60 * 6; // 6 ساعت
 const MAX_HISTORY_MSGS = 10;
-const RATE_LIMIT_WINDOW = 30; // ثانیه
-const RATE_LIMIT_MAX = 8; // پیام مجاز در بازه
+const RATE_LIMIT_WINDOW = 60; // ثانیه (حداقل مجاز در Cloudflare KV)
+const RATE_LIMIT_MAX = 12; // پیام مجاز در بازه
 
 const SYSTEM_PROMPT = `${KNOWLEDGE}
 
