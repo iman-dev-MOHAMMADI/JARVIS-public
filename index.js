@@ -39,6 +39,21 @@ export default {
       });
     }
 
+    // بررسی وضعیت webhook از طریق Cloudflare (چون از ایران api.telegram.org فیلتره)
+    // استفاده: https://<worker-url>/debug?key=<WEBHOOK_SECRET>
+    if (reqUrl.pathname === "/debug") {
+      if (reqUrl.searchParams.get("key") !== env.WEBHOOK_SECRET) {
+        return new Response("Forbidden", { status: 403 });
+      }
+      const res = await fetch(
+        `https://api.telegram.org/bot${env.BOT_TOKEN}/getWebhookInfo`
+      );
+      const data = await res.json();
+      return new Response(JSON.stringify(data, null, 2), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     if (request.method !== "POST") {
       return new Response("JARVIS bot is alive.", { status: 200 });
     }
